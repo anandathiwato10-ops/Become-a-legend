@@ -2,8 +2,15 @@
 <html lang="th">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Become a Legend — Football Life Simulator V7</title>
+<title>Become a Legend — Football Life Simulator V8</title>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@400;600;800&display=swap');
+.stars{color:#ffd23a;letter-spacing:2px;text-shadow:0 0 8px rgba(255,210,58,.6)}
+.fcard::after{content:'';position:absolute;inset:0;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.28) 48%,transparent 60%);background-size:250% 100%;animation:sheen 4.5s ease-in-out infinite;pointer-events:none}
+@keyframes sheen{0%{background-position:130% 0}60%,100%{background-position:-60% 0}}
+.panel2,.panel{box-shadow:0 8px 24px rgba(0,0,0,.28);transition:transform .2s}
+button{transition:transform .12s,filter .15s}button:active{transform:scale(.96)}button:hover{filter:brightness(1.1)}
+
 :root{--bg:#080e19;--panel:#111c2d;--panel2:#17263b;--line:#2a3d58;--txt:#eef4ff;--muted:#9aabc1;--green:#a6f078;--gold:#ffd166;--red:#ff7180;--blue:#70baff}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 85% -10%,#1a3c50 0,transparent 34%),var(--bg);color:var(--txt);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
 button,input,select{font:inherit}button{cursor:pointer;border:0;border-radius:10px;padding:10px 14px;background:var(--green);color:#10200b;font-weight:800}button:hover{filter:brightness(1.08)}button:disabled{opacity:.4;cursor:not-allowed}.secondary{background:#243750;color:var(--txt);border:1px solid var(--line)}.danger{background:#702b38;color:white}.goldbtn{background:var(--gold);color:#2b2105}
@@ -173,6 +180,7 @@ select,input{-webkit-appearance:none;appearance:none;border-radius:12px;font-siz
 select{background-image:linear-gradient(45deg,transparent 50%,#9fe9bf 50%),linear-gradient(135deg,#9fe9bf 50%,transparent 50%);background-position:calc(100% - 20px) 55%,calc(100% - 14px) 55%;background-size:6px 6px;background-repeat:no-repeat;padding-right:36px}
 @media(max-width:700px){header{position:static}.profile-card{position:static}}
 .modalbox{max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+body,button,select,input{font-family:Kanit,system-ui,-apple-system,'Noto Sans Thai',sans-serif}
 </style>
 </head>
 <body><noscript><div style="background:#ffd66b;color:#222;padding:12px 16px;font-weight:800">เบราว์เซอร์นี้ปิด JavaScript อยู่ เกมจึงเล่นไม่ได้ — เปิดไฟล์ด้วย Safari หรือ Chrome แทน</div></noscript>
@@ -235,45 +243,57 @@ const skinTones=['#f6d3b3','#e8b98d','#d39a6c','#b07548','#8a5634','#5e3a22'];
 const eyeColors=['#2a1a10','#2f6fa8','#4b8a57'];
 const hairStyles=['short','buzz','spiky','afro','long','mohawk','bald','curly','bun','side'];
 function strHash(str){let h=7;for(const c of str)h=(h*31+c.charCodeAt(0))>>>0;return h}
+/* ===== V8: star potential, natural growth curve + effort, per-position OVR ===== */
+const OVR_W={ST:{SHO:.42,PAC:.21,DRI:.16,PHY:.15,PAS:.06},Winger:{PAC:.27,DRI:.28,PAS:.17,SHO:.17,PHY:.08,DEF:.03},CM:{PAS:.34,DRI:.20,DEF:.15,PHY:.13,SHO:.10,PAC:.08},CB:{DEF:.47,PHY:.27,PAC:.12,PAS:.08,DRI:.06},GK:{REF:.25,DIV:.25,HAN:.20,POS:.15,KIC:.10,SPD:.05}};
+const STAR_CEIL=[0,90,93,95,97,99],STAR_PEAK=[0,65,73,81,88,94],STAR_EFF=[0,.5,.7,.9,1.1,1.3];
+const STAR_LABEL=['','พรสวรรค์จำกัด • ต้องทุ่มเทมาก','พรสวรรค์พอใช้','พรสวรรค์ดี','ดาวรุ่งระดับสูง','พรสวรรค์ระดับตำนาน'];
+const EFFK=.1;
+const ALLK=['PAC','SHO','PAS','DRI','DEF','PHY','DIV','HAN','KIC','REF','SPD','POS'];
+const CURVE=[0,.01,.02,.03,.04,.05,.08,.11,.15,.19,.24,.29,.35,.41,.47,.53,.58,.64,.7,.76,.82,.87,.92,.95,.98,1];
+function ageCurve(a){a=clamp(a,0,25);const lo=Math.floor(a),hi=Math.min(25,lo+1);return CURVE[lo]+(CURVE[hi]-CURVE[lo])*(a-lo)}
+function natStat(k,age,st,bias,pos){const w=(OVR_W[pos]||{})[k]||0,cv=ageCurve(age);if(w>=.05){const peak=STAR_PEAK[st]*(.88+.12*Math.min(1,w/.25))+((bias||{})[k]||0)*.5;return 14+(peak-14)*cv}return 10+st*2+cv*(6+st*2)}
+function agingLoss(k,age){return((k==='PAC'||k==='SPD')?clamp(Math.min(age,34)-29,0,4):0)+(age>=34?age-33:0)}
+function capOf(k,o){o=o||g;const w=(OVR_W[o.pos]||{})[k]||0,c=STAR_CEIL[o.stars||3];return Math.min(o.age>=40?94:99,w>=.05?c:Math.max(30,c-35))}
+function recomputeAttrs(o){o=o||g;const ageF=o.age+((o.monthIndex||0)/12);ALLK.forEach(function(k){const a=natStat(k,ageF,o.stars,o.bias,o.pos)+(o.ind[k]||0)+(o.eff[k]||0)-agingLoss(k,o.age);o.attrs[k]=clamp(Math.round(Math.min(capOf(k,o),a)),1,99)})}
+function pickBody(pos,info){
+ const pb=posBody[pos],avgH=Math.round(info.h+2.5+pb.h),r=Math.random();let H;
+ if(r<.5)H=avgH+rand(-3,3);else if(r<.75)H=avgH-rand(4,11);else H=avgH+rand(4,11);
+ H=clamp(H,pos==='GK'?172:155,pos==='GK'?206:203);
+ const d=H-avgH,tier=d>=4?'tall':d<=-4?'short':'avg';
+ const bmi=clamp(gauss(pb.bmi,.75)+(tier==='tall'?.25:tier==='short'?-.15:0),19.5,26.5);
+ return {adultHeight:H,adultWeight:Math.round(bmi*Math.pow(H/100,2)),heightTier:tier,avgHeight:avgH};
+}
 function createPlayerProfile(name,num,birth,pos,country){
- const info=countryInfo[country]||countryInfo['ไทย'],pb=posBody[pos];
- // ส่วนสูง/น้ำหนักตามสัญชาติ ตำแหน่ง และ BMI (กระจายแบบระฆังคว่ำ)
- const adultHeight=Math.round(clamp(gauss(info.h+pb.h,5.2),pos==='GK'?178:160,pos==='GK'?206:200));
- const bmi=clamp(gauss(pb.bmi,.9)+(adultHeight>188?.4:0),19.5,26.5);
- const adultWeight=Math.round(bmi*Math.pow(adultHeight/100,2));
- // ศักยภาพ: ส่วนใหญ่ 70-84 นาน ๆ ครั้งจะเจอ 90+
- const pot=Math.round(clamp(gauss(77,7.5),60,97));
- const growth=Math.round(clamp(gauss(1,.13),.78,1.28)*100)/100;
+ const info=countryInfo[country]||countryInfo['ไทย'];
+ const body=pickBody(pos,info);
+ const roll=rand(1,100),stars=roll<=14?1:roll<=38?2:roll<=72?3:roll<=92?4:5;
+ const growth=Math.round(clamp(gauss(1,.1),.85,1.18)*100)/100;
  const arch=pick(archetypes[pos]);
- const attrs={},caps={};
- const keys=['PAC','SHO','PAS','DRI','DEF','PHY','DIV','HAN','KIC','REF','SPD','POS'];
- const w=posWeights[pos];
- keys.forEach(k=>{
-   const wt=w[k]||0,b=arch.bias[k]||0;
-   attrs[k]=clamp(Math.round(rand(8,16)+(wt?rand(1,4):-rand(0,3))+b*.25),3,40);
-   caps[k]=capFor(pot,wt,b);
- });
+ const ind={},eff={},attrs={};ALLK.forEach(function(k){ind[k]=rand(-3,3);eff[k]=0;attrs[k]=1});
  const si=pick(info.skin),hi=pick(info.hair);
  const look={skin:si,hair:hi,eye:pick(info.eye),style:pick(hairStyles),facial:pick(['none','none','none','stubble','beard','moustache']),build:pos==='CB'||pos==='GK'?pick(['avg','broad','broad']):pos==='Winger'?pick(['slim','slim','avg']):pick(['slim','avg','avg','broad']),boots:pick(['#111','#f2f2f2','#ff5a36','#35c3ff','#b6ff3a','#ffd23a']),brow:rand(0,1),seed:rand(1,99999)};
  if(look.style==='afro'&&si<3&&hi<3&&info.hair.length<3)look.style='curly';
  if(look.style==='bald')look.facial=pick(['none','beard','stubble']);
- return {name,num,birth,pos,country,age:0,adultHeight,adultWeight,pot,growth,arch:arch.id,archName:arch.name,caps,look,strongFoot:Math.random()<.78?'ขวา':'ซ้าย',weakFoot:pick([1,2,2,2,3,3,3,4,4,5]),weakFootXp:0,year:birth,monthIndex:0,club:'ศูนย์ฝึกเยาวชนท้องถิ่น',league:'เยาวชน',attrs,health:100,energy:100,happy:75,money:0,training:'balanced',inventory:[],shopCooldown:{},homeTier:0,carTier:0,homeLastMonth:null,carLastMonth:null,relationship:'โสด',stats:{apps:0,goals:0,assists:0,clean:0,trophies:0,awards:[],awardHistory:[],seasons:0,form:0},history:[],academy:false,retired:false,injury:0,injuryRisk:0,midYearDoneYear:0,seasons:[]};
+ const o={name,num,birth,pos,country,age:0,adultHeight:body.adultHeight,adultWeight:body.adultWeight,heightTier:body.heightTier,avgHeight:body.avgHeight,stars:stars,pot:STAR_CEIL[stars],growth,arch:arch.id,archName:arch.name,bias:arch.bias,ind,eff,look,strongFoot:Math.random()<.78?'ขวา':'ซ้าย',weakFoot:pick([1,2,2,2,3,3,3,4,4,5]),weakFootXp:0,year:birth,monthIndex:0,club:'ศูนย์ฝึกเยาวชนท้องถิ่น',league:'เยาวชน',attrs,health:100,energy:100,happy:75,money:0,training:'balanced',inventory:[],shopCooldown:{},homeTier:0,carTier:0,homeLastMonth:null,carLastMonth:null,relationship:'โสด',stats:{apps:0,goals:0,assists:0,clean:0,trophies:0,awards:[],awardHistory:[],seasons:0,form:0},history:[],academy:false,retired:false,injury:0,injuryRisk:0,midYearDoneYear:0,seasons:[],ovrHist:{}};
+ recomputeAttrs(o);return o;
 }
-function capFor(pot,wt,b){if(wt>=3)return 99;if(wt===2)return clamp(Math.round(pot+14+b*.5+rand(-3,3)),72,94);if(wt===1)return clamp(Math.round(pot+5+b*.5+rand(-3,3)),60,86);return clamp(Math.round(pot-10+b*.4+rand(-4,4)),38,68)}
 function migrateSave(){if(!g.seasons)g.seasons=[];
- if(!g.pot)g.pot=clamp(Math.max(ovr()+12,74),60,97);
- if(!g.growth)g.growth=1;
- if(g.capsV!==3){g.capsV=3;g.caps={};const w=posWeights[g.pos]||{};['PAC','SHO','PAS','DRI','DEF','PHY','DIV','HAN','KIC','REF','SPD','POS'].forEach(k=>{const wt=w[k]||0;g.caps[k]=capFor(g.pot,wt,0)})}
- if(g.caps&&g.attrs)for(const k in g.caps){if(g.attrs[k]>g.caps[k])g.attrs[k]=g.caps[k]}
- if(!g.arch){const a=archetypes[g.pos][0];g.arch=a.id;g.archName=a.name}
+ if(!g.stars){const p=g.pot||75;g.stars=p>=90?5:p>=82?4:p>=76?3:p>=70?2:1}
+ g.pot=STAR_CEIL[g.stars];if(!g.growth||g.growth>1.2)g.growth=1;
+ if(!g.arch||!archetypes[g.pos].some(function(x){return x.id===g.arch})){const a=archetypes[g.pos][0];g.arch=a.id;g.archName=a.name}
+ if(!g.bias){g.bias=archetypes[g.pos].filter(function(x){return x.id===g.arch})[0].bias}
+ if(!g.ind){g.ind={};ALLK.forEach(function(k){g.ind[k]=rand(-3,3)})}
  if(!g.look){const c=createPlayerProfile(g.name,g.num,g.birth,g.pos,g.country);g.look=c.look}
- if(!g.adultHeight||g.adultHeight<150){const c=createPlayerProfile(g.name,g.num,g.birth,g.pos,g.country);g.adultHeight=c.adultHeight;g.adultWeight=c.adultWeight}
+ if(!g.adultHeight||g.adultHeight<150||!g.heightTier){const c=createPlayerProfile(g.name,g.num,g.birth,g.pos,g.country);g.adultHeight=c.adultHeight;g.adultWeight=c.adultWeight;g.heightTier=c.heightTier;g.avgHeight=c.avgHeight}
+ if(!g.eff){g.eff={};ALLK.forEach(function(k){g.eff[k]=Math.max(0,(g.attrs[k]||0)-natStat(k,g.age,g.stars,g.bias,g.pos)-g.ind[k]+agingLoss(k,g.age))})}
  if(!g.weakFoot||g.weakFoot<1)g.weakFoot=rand(1,5);
+ if(!g.ovrHist)g.ovrHist={};
+ recomputeAttrs();
 }
-function ovr(){let w=posWeights[g.pos],s=0,n=0;for(let k in w){s+=g.attrs[k]*w[k];n+=w[k]}return Math.round(s/n)}
-function ageGrowthMul(a){return a<=12?.8:a<=15?.55:a<=17?.34:a<=21?.3:a<=25?.26:a<=29?.2:.12}
-function addAttribute(k,delta){if(!g||g.age>=34||delta<=0)return;const cap=Math.min((g.caps&&g.caps[k])||99,g.age>=40?94:99),cur=g.attrs[k]||0;if(cur>=cap)return;const f=clamp((cap-cur)/24,.3,1);const potMul=.5+clamp(((g.pot||77)-60)/37,0,1)*1.0;const wt0=(posWeights[g.pos]||{})[k]||0,roleMul=[.4,.65,.85,1,1][Math.min(4,wt0)];const d=delta*f*potMul*roleMul*(g.growth||1)*ageGrowthMul(g.age)*.9;const whole=Math.floor(d);g.attrs[k]=Math.min(cap,cur+whole+(Math.random()<d-whole?1:0))}
 function trainWeakFoot(points=1){if(!g)return;g.weakFootXp=(g.weakFootXp||0)+points;while(g.weakFootXp>=4&&g.weakFoot<5){g.weakFootXp-=4;g.weakFoot++;log('🦶 เท้าข้างไม่ถนัดพัฒนาขึ้นเป็น '+g.weakFoot+' ดาว!')}if(g.weakFoot>=5)g.weakFootXp=0}
+function ovr(){const w=OVR_W[g.pos];let t=0;for(const k in w)t+=g.attrs[k]*w[k];return Math.round(t)}
+function ageGrowthMul(a){return a<=12?.8:a<=15?.55:a<=17?.34:a<=21?.3:a<=25?.26:a<=29?.2:.12}
+function addAttribute(k,delta){if(!g||g.age>=34||delta<=0)return;const cap=capOf(k),cur=g.attrs[k]||0;if(cur>=cap)return;const f=clamp((cap-cur)/24,.3,1);const w=(OVR_W[g.pos]||{})[k]||0,roleMul=w>=.15?1:w>=.08?.85:w>=.05?.7:.3;const room=Math.max(1,cap-(natStat(k,25,g.stars,g.bias,g.pos)+(g.ind[k]||0)));const sat=clamp(1-(g.eff[k]||0)/room,0,1);const d=delta*f*STAR_EFF[g.stars||3]*roleMul*(g.growth||1)*ageGrowthMul(g.age)*.9*EFFK*sat;g.eff[k]=(g.eff[k]||0)+d;g.attrs[k]=clamp(Math.round(Math.min(cap,natStat(k,g.age+((g.monthIndex||0)/12),g.stars,g.bias,g.pos)+(g.ind[k]||0)+g.eff[k]-agingLoss(k,g.age))),1,99)}
 function bodyMetrics(){const hf=[.29,.43,.49,.54,.58,.62,.66,.69,.72,.75,.78,.81,.84,.88,.92,.95,.97,.99,1];const wf=[.05,.14,.19,.24,.29,.34,.39,.44,.49,.54,.59,.64,.69,.75,.81,.88,.94,.98,1];const a=clamp(g.age,0,18);const lo=Math.floor(a),hi=Math.min(18,lo+1),mix=a-lo;return {height:Math.round((g.adultHeight||178)*(hf[lo]+(hf[hi]-hf[lo])*mix)),weight:Math.max(3,Math.round((g.adultWeight||72)*(wf[lo]+(wf[hi]-wf[lo])*mix)*10)/10)}}
 function log(s){let p=document.createElement('p');p.innerHTML=s;$('news').prepend(p)}
 function formError(id,msg){var e=$('formMsg');if(e){e.textContent='⚠️ '+msg;e.style.display='block'}var f=$(id);if(f){try{f.focus();f.style.borderColor='#ff6a6a'}catch(x){}}}
@@ -281,7 +301,7 @@ function newGame(){var fm=$('formMsg');if(fm)fm.style.display='none';['name','nu
 g=createPlayerProfile(name,num,birth,pos,country);
 elapsed=0;speed=1;running=true;clearInterval(timer);timer=setInterval(tick,100);$('create').classList.add('hidden');$('heroBox').classList.add('hidden');$('game').classList.remove('hidden');$('hud').style.display='grid';$('news').innerHTML='';log('🌱 '+g.name+' เกิดที่'+g.country+' เส้นทางสู่การเป็นตำนานเริ่มต้นขึ้น');setSpeedButtons();render();renderYearEvent();updateClock()}
 function tick(){if(!g||!running||g.retired||match)return;elapsed+=.1*speed;let reached=Math.min(12,Math.floor(elapsed/40*12));while(g.monthIndex<reached){g.monthIndex++;monthlyEvent(g.monthIndex)}if(elapsed>=40){elapsed=0;g.monthIndex=0;completeYear()}updateClock()}
-function monthlyEvent(month){if(g.age>=16){let home=homeOptions[g.homeTier||0],car=carOptions[g.carTier||0];let commuteCost=home.energy===0?0:Math.max(0,home.energy+car.energy-8);g.energy=clamp(g.energy-commuteCost-1);if(month===1&&home.happy)g.happy=clamp(g.happy+Math.round(home.happy/6));}let months=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];let pool=g.age<6?['คุณใช้เวลาวันนี้เล่นและเรียนรู้สิ่งใหม่ ๆ กับครอบครัว','วันนี้คุณได้ออกไปวิ่งเล่นจนเหนื่อย แต่ก็สนุกมาก','ครอบครัวพาคุณไปเดินเล่น ได้เห็นโลกกว้างขึ้น']:g.age<16?['หลังเลิกเรียนคุณแอบซ้อมสัมผัสบอลอยู่หน้าบ้าน','เพื่อนชวนคุณเตะบอลจนฟ้ามืด','คุณดูการแข่งขันฟุตบอลและลองเลียนแบบท่าของนักเตะ','ครูพละชมว่าคุณมีสมาธิและความมุ่งมั่น','วันนี้ฝนตก คุณจึงฝึกควบคุมบอลในบ้าน']:['คุณใช้เวลาฝึกซ้อมและฟื้นฟูร่างกายตามตาราง','สื่อท้องถิ่นพูดถึงพัฒนาการของคุณ','คุณได้พูดคุยกับเพื่อนร่วมทีมและเรียนรู้แท็กติกใหม่','ทีมงานจัดโปรแกรมฟื้นฟูเพื่อรักษาความฟิต','คุณใช้เวลาว่างพักผ่อนกับครอบครัว'];let msg='📅 '+months[month-1]+' • '+pick(pool);log(msg);
+function monthlyEvent(month){if(g.age>=1)recomputeAttrs();if(g.age>=16){let home=homeOptions[g.homeTier||0],car=carOptions[g.carTier||0];let commuteCost=home.energy===0?0:Math.max(0,home.energy+car.energy-8);g.energy=clamp(g.energy-commuteCost-1);if(month===1&&home.happy)g.happy=clamp(g.happy+Math.round(home.happy/6));}let months=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];let pool=g.age<6?['คุณใช้เวลาวันนี้เล่นและเรียนรู้สิ่งใหม่ ๆ กับครอบครัว','วันนี้คุณได้ออกไปวิ่งเล่นจนเหนื่อย แต่ก็สนุกมาก','ครอบครัวพาคุณไปเดินเล่น ได้เห็นโลกกว้างขึ้น']:g.age<16?['หลังเลิกเรียนคุณแอบซ้อมสัมผัสบอลอยู่หน้าบ้าน','เพื่อนชวนคุณเตะบอลจนฟ้ามืด','คุณดูการแข่งขันฟุตบอลและลองเลียนแบบท่าของนักเตะ','ครูพละชมว่าคุณมีสมาธิและความมุ่งมั่น','วันนี้ฝนตก คุณจึงฝึกควบคุมบอลในบ้าน']:['คุณใช้เวลาฝึกซ้อมและฟื้นฟูร่างกายตามตาราง','สื่อท้องถิ่นพูดถึงพัฒนาการของคุณ','คุณได้พูดคุยกับเพื่อนร่วมทีมและเรียนรู้แท็กติกใหม่','ทีมงานจัดโปรแกรมฟื้นฟูเพื่อรักษาความฟิต','คุณใช้เวลาว่างพักผ่อนกับครอบครัว'];let msg='📅 '+months[month-1]+' • '+pick(pool);log(msg);
 if(!match&&$('decisionModal').classList.contains('hidden'))$('eventArea').innerHTML=`<div class="event"><span class="monthtag">${months[month-1]} • อายุ ${g.age} ปี</span><p>${msg}</p></div>`;
 if(g.age>=6){
  const trained=pick(playerStats());
@@ -374,12 +394,12 @@ function advanceYear(){
  }
  elapsed=0;g.monthIndex=0;completeYear();
 }
-function completeYear(){if(g.retired)return;g.age++;g.year++;g.energy=clamp(g.energy+52);g.health=clamp(g.health+rand(4,9));if(g.injury>0){g.injury--;g.health=clamp(g.health+8);log('🩹 ฟื้นฟูอาการบาดเจ็บ เหลือ '+g.injury+' ปี')}
+function completeYear(){if(g.retired)return;g.age++;g.year++;g.monthIndex=0;recomputeAttrs();g.energy=clamp(g.energy+52);g.health=clamp(g.health+rand(4,9));if(g.injury>0){g.injury--;g.health=clamp(g.health+8);log('🩹 ฟื้นฟูอาการบาดเจ็บ เหลือ '+g.injury+' ปี')}
 if(g.age<=15){juvenileYear();handleYouthMilestone()}else professionalYear();
- if(g.age>=40&&!g.retired)retire(true);render();updateClock()}
+ g.ovrHist=g.ovrHist||{};g.ovrHist[g.age]=ovr();if(g.age>=40&&!g.retired)retire(true);render();updateClock()}
 function renderYearEvent(){ $('eventArea').innerHTML=`<div class="event"><b>บทเริ่มต้น • อายุ 0 ปี</b><p>คุณเพิ่งเกิดมาในครอบครัวธรรมดา เวลาในเกมจะเดินเองทุก 40 วินาทีเท่ากับ 1 ปี สามารถหยุดหรือเร่งเวลาได้เสมอ</p></div>`}
 function juvenileYear(){let ev=pick(['school','practice','family']);let msg='';if(ev==='school'){g.happy=clamp(g.happy+rand(-3,5));msg='📚 คุณได้เรียนรู้วินัยและการทำงานเป็นทีมจากโรงเรียน'}if(ev==='practice'){let k=pick(playerStats());addAttribute(k,rand(3,5));msg='⚽ ฝึกฟุตบอลหลังเลิกเรียน ค่าพลัง '+k+' ค่อย ๆ พัฒนาขึ้น'}if(ev==='family'){g.happy=clamp(g.happy+4);msg='🏡 ครอบครัวสนับสนุนความฝันของคุณ'}$('eventArea').innerHTML=`<div class="event"><b>ชีวิตวัยเยาว์ • อายุ ${g.age}</b><p>${msg}</p></div>`;g.history.push({year:g.year,age:g.age,club:g.club,note:msg});log(msg)}
-function professionalYear(){if(g.age>=30&&g.age<34){['PAC','SPD'].forEach(k=>{g.attrs[k]=Math.max(0,g.attrs[k]-1)})}if(g.age>=34){playerStats().forEach(k=>g.attrs[k]=Math.max(0,(g.attrs[k]||0)-1));if(g.age>=40)playerStats().forEach(k=>g.attrs[k]=Math.min(94,g.attrs[k]));log('📉 อายุ '+g.age+' ปี: ค่าพลังหลักลดลง 1 แต้มตามวัย และการฝึกไม่สามารถเพิ่มค่าพลังหลักได้อีก'+(g.age>=40?' • เพดานค่าพลังอยู่ที่ 94':'') )}else{let development=g.age<=21?rand(5,7):g.age<=25?rand(4,6):g.age<=30?rand(3,5):rand(2,4);let focus=posWeights[g.pos];Object.keys(focus).forEach(k=>addAttribute(k,Math.max(0,Math.round(development*focus[k]/4))))}if(g.age===16){g.league=pick(['แชมเปียนชิพ อังกฤษ','ลา ลีกา 2 สเปน','เซเรียบี อิตาลี','บุนเดสลีกา 2 เยอรมนี','ลีกเดอซ์ ฝรั่งเศส']);g.club=pick(clubs[g.league]);g.money+=90000;log('📝 เซ็นสัญญาอาชีพฉบับแรกกับ '+g.club)}
+function professionalYear(){if(g.age>=34){log('📉 อายุ '+g.age+' ปี: ค่าพลังหลักลดลง 1 แต้มตามวัย และการฝึกไม่สามารถเพิ่มค่าพลังหลักได้อีก'+(g.age>=40?' • เพดานค่าพลังอยู่ที่ 94':'') )}else{let development=g.age<=21?rand(5,7):g.age<=25?rand(4,6):g.age<=30?rand(3,5):rand(2,4);let focus=posWeights[g.pos];Object.keys(focus).forEach(k=>addAttribute(k,Math.max(0,Math.round(development*focus[k]/4))))}if(g.age===16){g.league=pick(['แชมเปียนชิพ อังกฤษ','ลา ลีกา 2 สเปน','เซเรียบี อิตาลี','บุนเดสลีกา 2 เยอรมนี','ลีกเดอซ์ ฝรั่งเศส']);g.club=pick(clubs[g.league]);g.money+=90000;log('📝 เซ็นสัญญาอาชีพฉบับแรกกับ '+g.club)}
 const topL=['พรีเมียร์ลีก อังกฤษ','ลาลีกา สเปน','เซเรียอา อิตาลี','บุนเดสลีกา เยอรมนี','ลีกเอิง ฝรั่งเศส'].includes(g.league);let salary=Math.round(Math.pow(ovr()/100,6)*9000000*(topL?1.6:.7)*(g.age<18?.35:1)*(rand(90,110)/100)/1000)*1000;g.money+=salary;let upkeep=Math.round((salary*.2+[0,40000,120000,900000][g.homeTier||0]+[0,30000,150000,700000][g.carTier||0])/1000)*1000;let paid=Math.min(g.money,upkeep);g.money-=paid;log('🧾 ค่าใช้จ่ายประจำปี (ค่าครองชีพ ภาษี ค่าดูแลบ้านและรถ) '+money(paid));g.stats.seasons++;let games=rand(25,36);let scored=0,assisted=0,clean=0;
 let trainingBonus=applyTraining();g.energy=clamp(g.energy-trainingBonus.energyCost);g.health=clamp(g.health-trainingBonus.healthCost);
 match={gameNo:1,total:3,goals:0,conceded:0,scored:0,assisted:0,clean:0,form:6,seasonGames:games,salary,trainingBonus};$('matchArea').innerHTML='';showInterview('pre',function(){startMatchMoment()});log('💼 ค่าเหนื่อยฤดูกาลนี้ '+money(salary)+' • แผนฝึก: '+trainingBonus.label)}
@@ -790,15 +810,16 @@ function cardHTML(suffix,size){
  const a=g.attrs,o=ovr(),isGK=g.pos==='GK',names=isGK?goalkeeperNames:sixNames,keys=Object.keys(names),kit=kitColors();
  const info=countryInfo[g.country]||{flag:'🏳️'};
  const col=i=>keys.slice(i*3,i*3+3).map(k=>`<div><b>${Math.round(a[k])}</b><span>${names[k]}</span></div>`).join('');
- return `<div class="fcard tier-${cardTier(o)} ${size||''}"><div class="fc-shine"></div><div class="fc-top"><div class="fc-left"><div class="fc-ovr">${o}</div><div class="fc-pos">${g.pos}</div><div class="fc-flag" title="${g.country}">${info.flag}</div><div class="fc-badge" style="background:${kit.main};color:${kit.trim}">${clubInitial()}</div></div><div class="fc-avatar"><canvas id="avatar${suffix}" width="120" height="168"></canvas></div></div><div class="fc-name">${g.name}</div><div class="fc-line"></div><div class="fc-stats"><div class="fc-col">${col(0)}</div><div class="fc-div"></div><div class="fc-col">${col(1)}</div></div><div class="fc-foot">#${g.num} • ${g.archName||posNames[g.pos]}</div></div>`;
+ return `<div class="fcard tier-${cardTier(o)} ${size||''}"><div class="fc-shine"></div><div class="fc-top"><div class="fc-left"><div class="fc-ovr">${o}</div><div class="fc-pos">${g.pos}</div><div class="fc-flag" title="${g.country}">${info.flag}</div><div class="fc-badge" style="background:${kit.main};color:${kit.trim}">${clubInitial()}</div></div><div class="fc-avatar"><canvas id="avatar${suffix}" width="120" height="168"></canvas></div></div><div class="fc-name">${g.name}</div><div class="fc-line"></div><div class="fc-stats"><div class="fc-col">${col(0)}</div><div class="fc-div"></div><div class="fc-col">${col(1)}</div></div><div class="fc-foot"><span class="stars" style="font-size:.95em">${potentialInfo().stars}</span> #${g.num} • ${g.archName||posNames[g.pos]}</div></div>`;
 }
 function marketValue(){const o=ovr(),af=g.age<=21?1.25:g.age<=27?1:g.age<=31?.7:.4;return Math.round(Math.pow(o/100,6)*3.5e8*af/10000)*10000}
-function potentialInfo(){const p=g.pot||75,stars=clamp(Math.round((p-60)/37*5),1,5),label=p>=90?'ระดับตำนาน':p>=84?'ระดับโลก':p>=78?'ดาวเด่น':p>=70?'นักเตะอาชีพคุณภาพ':'ผู้เล่นทั่วไป';let s='';for(let i=1;i<=5;i++)s+=stars>=i?'★':'☆';return{stars:s,label,lo:p-3,hi:Math.min(99,p+3)}}
+function potentialInfo(){const st=g.stars||3;let t='';for(let i=1;i<=5;i++)t+=st>=i?'★':'☆';return{stars:t,n:st,label:STAR_LABEL[st],ceil:STAR_CEIL[st],base:Math.round(STAR_PEAK[st]*.975)}}
+function ovrChart(){const h=Object.assign({},g.ovrHist||{});h[g.age]=ovr();const ks=Object.keys(h).map(Number).sort(function(a,b){return a-b});if(ks.length<2)return '<p class="muted">ข้อมูลจะแสดงเมื่อผ่านไปหลายปี</p>';const W=300,H=110,x0=ks[0],x1=Math.max(ks[ks.length-1],x0+1);const pts=ks.map(function(k){return [(8+(k-x0)/(x1-x0)*(W-16)).toFixed(1),(H-10-(h[k]/100)*(H-20)).toFixed(1)]});const line=pts.map(function(q){return q.join(',')}).join(' ');const ceilY=(H-10-(STAR_CEIL[g.stars||3]/100)*(H-20)).toFixed(1);return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto"><line x1="8" x2="'+(W-8)+'" y1="'+ceilY+'" y2="'+ceilY+'" stroke="#ffd23a" stroke-dasharray="4 3" opacity=".6"/><polygon points="8,'+(H-10)+' '+line+' '+(W-8)+','+(H-10)+'" fill="rgba(80,255,170,.15)"/><polyline points="'+line+'" fill="none" stroke="#50ffaa" stroke-width="2.5" stroke-linejoin="round"/><text x="10" y="'+(Number(ceilY)-3)+'" fill="#ffd23a" font-size="9">เพดาน '+STAR_CEIL[g.stars||3]+'</text><text x="10" y="'+(H-1)+'" fill="#9aa" font-size="9">อายุ '+x0+'</text><text x="'+(W-10)+'" y="'+(H-1)+'" fill="#9aa" font-size="9" text-anchor="end">'+x1+'</text></svg>'}
 function profileHTML(){
  const a=g.attrs,o=ovr(),b=bodyMetrics(),pi=potentialInfo(),isGK=g.pos==='GK',names=isGK?goalkeeperNames:sixNames,wf='★'.repeat(g.weakFoot||1)+'☆'.repeat(5-(g.weakFoot||1)),bmi=(b.weight/Math.pow(b.height/100,2)).toFixed(1);
  const bars=Object.keys(names).map(k=>`<div class="pbar"><span class="pbl">${names[k]}</span><div class="pbt"><i style="width:${clamp(a[k])}%;background:${statColor(a[k])}"></i></div><b>${Math.round(a[k])}</b></div>`).join('');
  const row=(l,v)=>`<div class="irow"><span>${l}</span><b>${v}</b></div>`;
- return `<div class="profile-grid"><div class="profile-card">${cardHTML('Big','big')}</div><div class="profile-info"><div class="panel2"><h3>ข้อมูลทั่วไป</h3>${row('ชื่อ',g.name)}${row('สัญชาติ',((countryInfo[g.country]||{}).flag||'')+' '+g.country)}${row('อายุ / ปีเกิด',g.age+' ปี / '+g.birth)}${row('ตำแหน่ง',g.pos+' • '+posNames[g.pos])}${row('สไตล์การเล่น',g.archName||'-')}${row('สโมสร',g.club)}${row('ลีก',g.league)}${row('เบอร์เสื้อ','#'+g.num)}</div><div class="panel2"><h3>ร่างกาย & เท้า</h3>${row('ส่วนสูง',b.height+' ซม.')}${row('น้ำหนัก',b.weight+' กก. (BMI '+bmi+')')}${row('ส่วนสูงเมื่อโตเต็มที่ (แมวมองประเมิน)','~'+g.adultHeight+' ซม.')}${row('เท้าถนัด',g.strongFoot)}${row('เท้าข้างไม่ถนัด','<span style="color:var(--gold)">'+wf+'</span>')}</div><div class="panel2"><h3>ค่าพลังและศักยภาพ</h3><div class="pbars">${bars}</div>${row('OVR ปัจจุบัน',o)}${row('ศักยภาพ (ประเมิน)',pi.stars+' • '+pi.label)}${row('ช่วง OVR สูงสุดที่คาดไว้','~'+pi.lo+' – '+pi.hi)}${row('มูลค่าตลาด',money(marketValue()))}</div><div class="panel2"><h3>ผลงานอาชีพ</h3>${row('ลงสนาม',g.stats.apps)}${row('ประตู',g.stats.goals)}${row('แอสซิสต์',g.stats.assists)}${row('คลีนชีต',g.stats.clean)}${row('แชมป์',g.stats.trophies)}${row('รางวัลส่วนตัว',g.stats.awards.length)}</div></div></div>`;
+ return `<div class="profile-grid"><div class="profile-card">${cardHTML('Big','big')}</div><div class="profile-info"><div class="panel2"><h3>ข้อมูลทั่วไป</h3>${row('ชื่อ',g.name)}${row('สัญชาติ',((countryInfo[g.country]||{}).flag||'')+' '+g.country)}${row('อายุ / ปีเกิด',g.age+' ปี / '+g.birth)}${row('ตำแหน่ง',g.pos+' • '+posNames[g.pos])}${row('สไตล์การเล่น',g.archName||'-')}${row('สโมสร',g.club)}${row('ลีก',g.league)}${row('เบอร์เสื้อ','#'+g.num)}</div><div class="panel2"><h3>ร่างกาย & เท้า</h3>${row('ส่วนสูง',b.height+' ซม.')}${row('น้ำหนัก',b.weight+' กก. (BMI '+bmi+')')}${row('ส่วนสูงเมื่อโตเต็มที่','~'+g.adultHeight+' ซม. • '+({tall:'สูงกว่าเฉลี่ย',short:'เตี้ยกว่าเฉลี่ย',avg:'ใกล้เคียงเฉลี่ย'})[g.heightTier||'avg'])}${row('เฉลี่ยนักเตะ'+g.country+' ('+g.pos+')','~'+(g.avgHeight||g.adultHeight)+' ซม.')}${row('เท้าถนัด',g.strongFoot)}${row('เท้าข้างไม่ถนัด','<span style="color:var(--gold)">'+wf+'</span>')}</div><div class="panel2"><h3>ค่าพลังและศักยภาพ</h3><div class="pbars">${bars}</div>${row('OVR ปัจจุบัน',o)}${row('ศักยภาพ','<span class="stars">'+pi.stars+'</span> • '+pi.label)}${row('เพดาน OVR สูงสุด',pi.ceil)}${row('OVR วัยพีคโดยประมาณ (25-28)','~'+pi.base+'+')}${row('มูลค่าตลาด',money(marketValue()))}</div><div class="panel2"><h3>กราฟ OVR ตามอายุ</h3>${ovrChart()}</div><div class="panel2"><h3>ผลงานอาชีพ</h3>${row('ลงสนาม',g.stats.apps)}${row('ประตู',g.stats.goals)}${row('แอสซิสต์',g.stats.assists)}${row('คลีนชีต',g.stats.clean)}${row('แชมป์',g.stats.trophies)}${row('รางวัลส่วนตัว',g.stats.awards.length)}</div></div></div>`;
 }
 function renderCard(){
  const b=bodyMetrics();
